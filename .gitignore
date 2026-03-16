@@ -8,8 +8,10 @@
 /debug/
 /testdata/
 
+.env
 .env.local
 .env.*.local
+*.env
 
 .vscode/settings.json
 .idea/
