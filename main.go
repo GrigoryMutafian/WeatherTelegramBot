@@ -24,16 +24,9 @@ func main() {
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	updates := bot.GetUpdatesChan(u)
-
 	owClient := openweather.New(os.Getenv("OPENWEATHERAPI"))
 
 	botHandler := handler.New(bot, owClient)
 
-	for update := range updates {
-		botHandler.HandlerUpdate(update)
-	}
+	botHandler.Start()
 }

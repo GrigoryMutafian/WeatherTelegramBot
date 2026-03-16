@@ -20,3 +20,8 @@ type WeatherResponse struct {
 type Weather struct {
 	Temp float64
 }
+
+type Sender struct {
+	ID   string
+	City string
+}
