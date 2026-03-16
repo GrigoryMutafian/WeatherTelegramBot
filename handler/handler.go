@@ -51,7 +51,7 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 		weather, err := h.owClient.Weather(coordinates.Lat, coordinates.Lon)
 		if err != nil {
 			log.Println(err)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить показатель темпиратуры в Вашем городе, убедитесь что написали название города верно")
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить показатель температуры в Вашем городе, убедитесь что написали название города верно")
 			msg.ReplyToMessageID = update.Message.MessageID
 			h.bot.Send(msg)
 			return
@@ -59,7 +59,7 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 
 		msg := tgbotapi.NewMessage(
 			update.Message.Chat.ID,
-			fmt.Sprintf("Темпиратура в городе %s: %d °C", update.Message.Text, int(math.Round(weather.Temp-273.15))))
+			fmt.Sprintf("Температура в городе %s: %d °C", update.Message.Text, int(math.Round(weather.Temp-273.15))))
 		msg.ReplyToMessageID = update.Message.MessageID
 		h.bot.Send(msg)
 	}
