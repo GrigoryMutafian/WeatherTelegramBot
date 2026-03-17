@@ -1,5 +1,7 @@
 package openweather
 
+import tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 type CoordinatesResponse struct {
 	Name string  `json:"name"`
 	Lat  float64 `json:"lat"`
@@ -22,6 +24,6 @@ type Weather struct {
 }
 
 type Sender struct {
-	ID   string
-	City string
+	ID   int64
+	City *tgbotapi.Message
 }
