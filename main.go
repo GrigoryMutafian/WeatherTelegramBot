@@ -5,6 +5,7 @@ import (
 	"os"
 	"weatherbot/clients/openweather"
 	"weatherbot/handler"
+	"weatherbot/storage"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
@@ -18,6 +19,18 @@ func main() {
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN"))
 	if err != nil {
 		log.Panic(err)
+	}
+
+	db, err := storage.New()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	defer db.Close()
+
+	err = db.CreateUserTable()
+	if err != nil {
+		log.Fatal("failed to create table: ", err)
 	}
 
 	bot.Debug = true
