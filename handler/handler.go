@@ -62,5 +62,10 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 			fmt.Sprintf("Температура в городе %s: %d °C", update.Message.Text, int(math.Round(weather.Temp-273.15))))
 		msg.ReplyToMessageID = update.Message.MessageID
 		h.bot.Send(msg)
+
+		var Sender openweather.Sender
+
+		Sender.ID = update.Message.From.ID
+		Sender.City = update.Message
 	}
 }
