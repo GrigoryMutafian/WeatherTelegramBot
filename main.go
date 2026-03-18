@@ -39,7 +39,7 @@ func main() {
 
 	owClient := openweather.New(os.Getenv("OPENWEATHERAPI"))
 
-	botHandler := handler.New(bot, owClient)
+	botHandler := handler.New(bot, owClient, db)
 
 	botHandler.Start()
 }

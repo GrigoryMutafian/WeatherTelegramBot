@@ -48,3 +48,12 @@ func (s *Storage) CreateUserTable() error {
 	_, err := s.db.Exec(query)
 	return err
 }
+
+func (s *Storage) SaveSender(id int64, city string) error {
+	query := `INSERT INTO users(id, city) 
+	VALUES ($1, $2) 
+	ON CONFLICT (id) DO UPDATE SET city = $2`
+
+	_, err := s.db.Exec(query, id, city)
+	return err
+}
