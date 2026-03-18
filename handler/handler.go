@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"weatherbot/clients/openweather"
+	"weatherbot/storage"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -12,12 +13,14 @@ import (
 type Handler struct {
 	bot      *tgbotapi.BotAPI
 	owClient *openweather.OpenWeatherClient
+	storage  *storage.Storage
 }
 
-func New(bot *tgbotapi.BotAPI, owClient *openweather.OpenWeatherClient) *Handler {
+func New(bot *tgbotapi.BotAPI, owClient *openweather.OpenWeatherClient, storage *storage.Storage) *Handler {
 	return &Handler{
 		bot:      bot,
 		owClient: owClient,
+		storage:  storage,
 	}
 }
 
@@ -43,7 +46,7 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 		coordinates, err := h.owClient.Coordinates(update.Message.Text)
 		if err != nil {
 			log.Println(err)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить верные координаты города, убедитесь что написали название города верно")
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить верные координаты города, убедитесь, что написали название города верно")
 			msg.ReplyToMessageID = update.Message.MessageID
 			h.bot.Send(msg)
 			return
@@ -51,7 +54,7 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 		weather, err := h.owClient.Weather(coordinates.Lat, coordinates.Lon)
 		if err != nil {
 			log.Println(err)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить показатель температуры в Вашем городе, убедитесь что написали название города верно")
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить показатель температуры в Вашем городе, убедитесь, что написали название города верно")
 			msg.ReplyToMessageID = update.Message.MessageID
 			h.bot.Send(msg)
 			return
@@ -62,5 +65,15 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 			fmt.Sprintf("Температура в городе %s: %d °C", update.Message.Text, int(math.Round(weather.Temp-273.15))))
 		msg.ReplyToMessageID = update.Message.MessageID
 		h.bot.Send(msg)
+
+		var Sender openweather.Sender
+
+		Sender.ID = update.Message.From.ID
+		Sender.City = update.Message.Text
+
+		err = h.storage.SaveSender(Sender.ID, Sender.City)
+		if err != nil {
+			log.Println("failed to save sender:", err)
+		}
 	}
 }
