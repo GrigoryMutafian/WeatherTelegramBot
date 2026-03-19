@@ -42,6 +42,12 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 		Sender.ID = update.Message.From.ID
 		Sender.City = update.Message.Text
 
+		if update.Message.Text == "/start" {
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите город или населённый пункт для получения прогноза погоды")
+			h.bot.Send(msg)
+			return
+		}
+
 		if update.Message.Text == "/weather" || update.Message.Text == "Погода" {
 			city, check, err := h.storage.GetUserData(Sender.ID)
 			Sender.City = city
@@ -53,17 +59,18 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 				return
 			}
 			if check == false {
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите город для получения прогноза погоды")
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите город или населённый пункт для получения прогноза погоды")
 				msg.ReplyToMessageID = update.Message.MessageID
 				h.bot.Send(msg)
 				return
 			}
 		}
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-		coordinates, err := h.owClient.Coordinates(Sender.City)
+		coordinates, country, err := h.owClient.Coordinates(Sender.City)
+		country = h.owClient.CountryName(country)
 		if err != nil {
 			log.Println(err)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить верные координаты города, убедитесь, что написали название города верно")
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить верные координаты населённого пункта, убедитесь, что написали название города верно")
 			msg.ReplyToMessageID = update.Message.MessageID
 			h.bot.Send(msg)
 			return
@@ -71,7 +78,7 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 		weather, err := h.owClient.Weather(coordinates.Lat, coordinates.Lon)
 		if err != nil {
 			log.Println(err)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить показатель температуры в Вашем городе, убедитесь, что написали название города верно")
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить показатель температуры Вашего населённого пункта, убедитесь, что написали название города верно")
 			msg.ReplyToMessageID = update.Message.MessageID
 			h.bot.Send(msg)
 			return
@@ -79,7 +86,7 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 
 		msg := tgbotapi.NewMessage(
 			update.Message.Chat.ID,
-			fmt.Sprintf("Температура в городе %s: %d °C", Sender.City, int(math.Round(weather.Temp-273.15))))
+			fmt.Sprintf("Температура в населённом пункте %s, %s: %d °C", Sender.City, country, int(math.Round(weather.Temp-273.15))))
 		msg.ReplyToMessageID = update.Message.MessageID
 		h.bot.Send(msg)
 
