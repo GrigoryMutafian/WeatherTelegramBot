@@ -36,14 +36,31 @@ func (h *Handler) Start() {
 
 func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 	if update.Message != nil {
-		if update.Message.Text == "/start" {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите город для получения прогноза погоды")
-			msg.ReplyToMessageID = update.Message.MessageID
-			h.bot.Send(msg)
-			return
+
+		var Sender openweather.Sender
+
+		Sender.ID = update.Message.From.ID
+		Sender.City = update.Message.Text
+
+		if update.Message.Text == "/weather" || update.Message.Text == "Погода" {
+			city, check, err := h.storage.GetUserData(Sender.ID)
+			Sender.City = city
+			if err != nil {
+				log.Println(err)
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли вспомнить Ваш город, попробуйте ввести его ещё в чате")
+				msg.ReplyToMessageID = update.Message.MessageID
+				h.bot.Send(msg)
+				return
+			}
+			if check == false {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите город для получения прогноза погоды")
+				msg.ReplyToMessageID = update.Message.MessageID
+				h.bot.Send(msg)
+				return
+			}
 		}
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-		coordinates, err := h.owClient.Coordinates(update.Message.Text)
+		coordinates, err := h.owClient.Coordinates(Sender.City)
 		if err != nil {
 			log.Println(err)
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли получить верные координаты города, убедитесь, что написали название города верно")
@@ -62,14 +79,9 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 
 		msg := tgbotapi.NewMessage(
 			update.Message.Chat.ID,
-			fmt.Sprintf("Температура в городе %s: %d °C", update.Message.Text, int(math.Round(weather.Temp-273.15))))
+			fmt.Sprintf("Температура в городе %s: %d °C", Sender.City, int(math.Round(weather.Temp-273.15))))
 		msg.ReplyToMessageID = update.Message.MessageID
 		h.bot.Send(msg)
-
-		var Sender openweather.Sender
-
-		Sender.ID = update.Message.From.ID
-		Sender.City = update.Message.Text
 
 		err = h.storage.SaveSender(Sender.ID, Sender.City)
 		if err != nil {

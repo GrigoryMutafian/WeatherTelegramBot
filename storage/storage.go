@@ -57,3 +57,21 @@ func (s *Storage) SaveSender(id int64, city string) error {
 	_, err := s.db.Exec(query, id, city)
 	return err
 }
+
+func (s *Storage) GetUserData(id int64) (string, bool, error) {
+	query := `SELECT city FROM users WHERE id = $1`
+
+	var city string
+	row := s.db.QueryRow(query, id)
+	err := row.Scan(&city)
+
+	if err == sql.ErrNoRows {
+		return "", false, nil
+	}
+
+	if err != nil {
+		return "", false, err
+	}
+
+	return city, true, nil
+}
