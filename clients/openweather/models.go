@@ -26,3 +26,7 @@ type Sender struct {
 	ID   int64
 	City string
 }
+
+type Overview struct {
+	Overview string `json:"weather_overview"`
+}

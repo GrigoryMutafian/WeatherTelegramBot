@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"weatherbot/clients/glm"
 	"weatherbot/clients/openweather"
 	"weatherbot/handler"
 	"weatherbot/storage"
@@ -33,13 +34,17 @@ func main() {
 		log.Fatal("failed to create table: ", err)
 	}
 
+	GLMToken := os.Getenv("GLM_TOKEN")
+
+	GLMClient := glm.New(GLMToken)
+
 	bot.Debug = true
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
 	owClient := openweather.New(os.Getenv("OPENWEATHERAPI"))
 
-	botHandler := handler.New(bot, owClient, db)
+	botHandler := handler.New(bot, owClient, db, GLMClient)
 
 	botHandler.Start()
 }

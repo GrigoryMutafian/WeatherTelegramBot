@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"weatherbot/clients/glm"
 	"weatherbot/clients/openweather"
 	"weatherbot/storage"
 
@@ -14,13 +15,15 @@ type Handler struct {
 	bot      *tgbotapi.BotAPI
 	owClient *openweather.OpenWeatherClient
 	storage  *storage.Storage
+	GLM      *glm.Client
 }
 
-func New(bot *tgbotapi.BotAPI, owClient *openweather.OpenWeatherClient, storage *storage.Storage) *Handler {
+func New(bot *tgbotapi.BotAPI, owClient *openweather.OpenWeatherClient, storage *storage.Storage, glmClient *glm.Client) *Handler {
 	return &Handler{
 		bot:      bot,
 		owClient: owClient,
 		storage:  storage,
+		GLM:      glmClient,
 	}
 }
 
@@ -83,13 +86,25 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 			h.bot.Send(msg)
 			return
 		}
+		response := fmt.Sprintf("Температура в населённом пункте %s, %s: %d °C", Sender.City, country, int(math.Round(weather.Temp-273.15)))
 
-		msg := tgbotapi.NewMessage(
-			update.Message.Chat.ID,
-			fmt.Sprintf("Температура в населённом пункте %s, %s: %d °C", Sender.City, country, int(math.Round(weather.Temp-273.15))))
-		msg.ReplyToMessageID = update.Message.MessageID
-		h.bot.Send(msg)
+		err = h.storage.SaveSender(Sender.ID, Sender.City)
+		if err != nil {
+			log.Println("failed to save sender:", err)
+		}
 
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Один момент...")
+		sentMsg, _ := h.bot.Send(msg)
+		systemPrompt := glm.SystemPrompt
+		userMessage := response
+
+		answer, err := h.GLM.ChatWithPrompt(systemPrompt, userMessage)
+		if err != nil {
+			log.Println("failed getting AI answer", err)
+			return
+		}
+		editMsg := tgbotapi.NewEditMessageText(update.Message.Chat.ID, sentMsg.MessageID, answer)
+		h.bot.Send(editMsg)
 		err = h.storage.SaveSender(Sender.ID, Sender.City)
 		if err != nil {
 			log.Println("failed to save sender:", err)
