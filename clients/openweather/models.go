@@ -23,8 +23,9 @@ type Weather struct {
 }
 
 type Sender struct {
-	ID   int64
-	City string
+	ID           int64
+	City         string
+	RequestCount int64
 }
 
 type Overview struct {

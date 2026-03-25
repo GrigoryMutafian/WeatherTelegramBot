@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -41,9 +42,11 @@ func (s *Storage) Close() error {
 func (s *Storage) CreateUserTable() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS users (
-		id SERIAL PRIMARY KEY,
-		city VARCHAR(100)
-	);`
+    id SERIAL PRIMARY KEY,
+    city VARCHAR(100),
+    request_count INT DEFAULT 0,
+    last_reset_date DATE DEFAULT CURRENT_DATE
+);`
 
 	_, err := s.db.Exec(query)
 	return err
@@ -74,4 +77,50 @@ func (s *Storage) GetUserData(id int64) (string, bool, error) {
 	}
 
 	return city, true, nil
+}
+
+func (s *Storage) IncreamentRequestCount(id int64) error {
+	query := `UPDATE users 
+	SET request_count = request_count + 1
+	WHERE id = $1`
+
+	_, err := s.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Storage) GetRequestCount(id int64) (int64, error) {
+	query := `SELECT request_count, last_reset_date FROM users WHERE id = $1`
+
+	var count int64
+	var resetDate time.Time
+
+	row := s.db.QueryRow(query, id)
+	err := row.Scan(&count, &resetDate)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	if resetDate.Format("2006-01-02") != time.Now().Format("2006-01-02") {
+		return 0, nil
+	}
+
+	return count, nil
+}
+
+func (s *Storage) ResetRequestCount(id int64) error {
+	query := `UPDATE users
+		SET request_count = 0, last_reset_date = CURRENT_DATE
+		WHERE id = $1`
+
+	_, err := s.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }

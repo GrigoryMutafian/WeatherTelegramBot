@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sync"
 	"weatherbot/clients/glm"
 	"weatherbot/clients/openweather"
 	"weatherbot/storage"
@@ -37,13 +38,34 @@ func (h *Handler) Start() {
 	}
 }
 
+var (
+	mu sync.Mutex
+)
+
 func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 	if update.Message != nil {
+		mu.Lock()
+		defer mu.Unlock()
 
-		var Sender openweather.Sender
+		var sender openweather.Sender
+		sender.ID = update.Message.From.ID
+		sender.City = update.Message.Text
 
-		Sender.ID = update.Message.From.ID
-		Sender.City = update.Message.Text
+		count, err := h.storage.GetRequestCount(sender.ID)
+		if err != nil {
+			log.Println("error while getting request count:", err)
+			return
+		}
+
+		if count == 0 {
+			h.storage.ResetRequestCount(sender.ID)
+		}
+
+		if count > 4 {
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Вы привысили количество запросов за день. Возвращайтесь завтра.")
+			h.bot.Send(msg)
+			return
+		}
 
 		if update.Message.Text == "/start" {
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите город или населённый пункт для получения прогноза погоды")
@@ -52,8 +74,8 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 		}
 
 		if update.Message.Text == "/weather" || update.Message.Text == "Погода" {
-			city, check, err := h.storage.GetUserData(Sender.ID)
-			Sender.City = city
+			city, check, err := h.storage.GetUserData(sender.ID)
+			sender.City = city
 			if err != nil {
 				log.Println(err)
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Не смогли вспомнить Ваш город, попробуйте ввести его ещё в чате")
@@ -69,7 +91,7 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 			}
 		}
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-		coordinates, country, err := h.owClient.Coordinates(Sender.City)
+		coordinates, country, err := h.owClient.Coordinates(sender.City)
 		country = h.owClient.CountryName(country)
 		if err != nil {
 			log.Println(err)
@@ -86,9 +108,9 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 			h.bot.Send(msg)
 			return
 		}
-		response := fmt.Sprintf("Температура в населённом пункте %s, %s: %d °C", Sender.City, country, int(math.Round(weather.Temp-273.15)))
+		response := fmt.Sprintf("Температура в населённом пункте %s, %s: %d °C", sender.City, country, int(math.Round(weather.Temp-273.15)))
 
-		err = h.storage.SaveSender(Sender.ID, Sender.City)
+		err = h.storage.SaveSender(sender.ID, sender.City)
 		if err != nil {
 			log.Println("failed to save sender:", err)
 		}
@@ -105,9 +127,15 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 		}
 		editMsg := tgbotapi.NewEditMessageText(update.Message.Chat.ID, sentMsg.MessageID, answer)
 		h.bot.Send(editMsg)
-		err = h.storage.SaveSender(Sender.ID, Sender.City)
+		err = h.storage.SaveSender(sender.ID, sender.City)
 		if err != nil {
 			log.Println("failed to save sender:", err)
+		}
+
+		err = h.storage.IncreamentRequestCount(sender.ID)
+		if err != nil {
+			log.Println("failed to increament requests count:", err)
+
 		}
 	}
 }

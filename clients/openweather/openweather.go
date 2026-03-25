@@ -75,26 +75,3 @@ func (o OpenWeatherClient) Weather(lat, lon float64) (Weather, error) {
 		Temp: weatherResponse.Main.Temp,
 	}, nil
 }
-
-func (o OpenWeatherClient) WeatherOverview(lat, lon float64) (Overview, error) {
-	url := "https://api.openweathermap.org/data/3.0/onecall/overview?lon=%f&lat=%f&appid=%s"
-	resp, err := http.Get(fmt.Sprintf(url, lat, lon, o.apiKey))
-	if err != nil {
-		return Overview{}, fmt.Errorf("error get overview: %w", err)
-	}
-
-	if resp.StatusCode != 200 {
-		return Overview{}, fmt.Errorf("error while getting overview. code: %d", resp.StatusCode)
-	}
-
-	var weatherOverview Overview
-
-	err = json.NewDecoder(resp.Body).Decode(&weatherOverview)
-	if err != nil {
-		return Overview{}, fmt.Errorf("error while decoding response body: %w", err)
-	}
-
-	return Overview{
-		Overview: weatherOverview.Overview,
-	}, nil
-}
