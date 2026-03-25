@@ -1,9 +1,10 @@
 package openweather
 
 type CoordinatesResponse struct {
-	Name string  `json:"name"`
-	Lat  float64 `json:"lat"`
-	Lon  float64 `json:"lon"`
+	Name    string  `json:"name"`
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
+	Country string  `json:"country"`
 }
 
 type Coordinates struct {
@@ -22,6 +23,11 @@ type Weather struct {
 }
 
 type Sender struct {
-	ID   int64
-	City string
+	ID           int64
+	City         string
+	RequestCount int64
+}
+
+type Overview struct {
+	Overview string `json:"weather_overview"`
 }
