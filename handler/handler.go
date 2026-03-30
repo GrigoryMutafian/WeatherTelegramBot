@@ -6,6 +6,7 @@ import (
 	"math"
 	"sync"
 	"weatherbot/clients/glm"
+	"weatherbot/clients/notifications"
 	"weatherbot/clients/openweather"
 	"weatherbot/storage"
 
@@ -13,19 +14,50 @@ import (
 )
 
 type Handler struct {
-	bot      *tgbotapi.BotAPI
-	owClient *openweather.OpenWeatherClient
-	storage  *storage.Storage
-	GLM      *glm.Client
+	bot             *tgbotapi.BotAPI
+	owClient        *openweather.OpenWeatherClient
+	storage         *storage.Storage
+	GLM             *glm.Client
+	notificationMgr *notifications.Manager
 }
 
 func New(bot *tgbotapi.BotAPI, owClient *openweather.OpenWeatherClient, storage *storage.Storage, glmClient *glm.Client) *Handler {
-	return &Handler{
+	h := &Handler{
 		bot:      bot,
 		owClient: owClient,
 		storage:  storage,
 		GLM:      glmClient,
 	}
+
+	notifMgr := notifications.New(
+		h.sendTelegramMessage, // функция отправки сообщения
+		h.getWeatherForCity,   // функция получения погоды
+	)
+	notifMgr.Start()
+	h.notificationMgr = notifMgr
+
+	return h
+}
+
+func (h *Handler) sendTelegramMessage(userID int64, message string) error {
+	msg := tgbotapi.NewMessage(userID, message)
+	_, err := h.bot.Send(msg)
+	return err
+}
+
+func (h *Handler) getWeatherForCity(city string) (string, error) {
+	coordinates, country, err := h.owClient.Coordinates(city)
+	if err != nil {
+		return "", err
+	}
+
+	weather, err := h.owClient.Weather(coordinates.Lat, coordinates.Lon)
+	if err != nil {
+		return "", err
+	}
+
+	country = h.owClient.CountryName(country)
+	return fmt.Sprintf("Температура в %s, %s: %d °C", city, country, int(math.Round(weather.Temp-273.15))), nil
 }
 
 func (h *Handler) Start() {
@@ -70,6 +102,16 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 		if update.Message.Text == "/start" {
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите город или населённый пункт для получения прогноза погоды")
 			h.bot.Send(msg)
+			return
+		}
+
+		if update.Message.Text == "/subscribe" {
+			h.handleSubscribe(update)
+			return
+		}
+
+		if update.Message.Text == "/unsubscribe" {
+			h.handleUnsubscribe(update)
 			return
 		}
 
@@ -138,4 +180,42 @@ func (h *Handler) HandlerUpdate(update tgbotapi.Update) {
 
 		}
 	}
+}
+
+func (h *Handler) handleSubscribe(update tgbotapi.Update) {
+	userID := update.Message.From.ID
+	chatID := update.Message.Chat.ID
+
+	city, hasCity, err := h.storage.GetUserData(userID)
+	if err != nil {
+		log.Println("error getting user data:", err)
+		msg := tgbotapi.NewMessage(chatID, "Произошла ошибка при получении данных пользователя")
+		h.bot.Send(msg)
+		return
+	}
+
+	if !hasCity {
+		msg := tgbotapi.NewMessage(chatID, "Сначала укажите свой город, отправив его название в чат")
+		h.bot.Send(msg)
+		return
+	}
+
+	// Подписываем на уведомления в 8:00 утра (по Москве)
+	h.notificationMgr.Subscribe(userID, city, 8)
+
+	msg := tgbotapi.NewMessage(chatID,
+		fmt.Sprintf("✅ Вы подписались на ежедневные уведомления о погоде в городе %s!\n"+
+			"Уведомление будет приходить каждый день в 8:00 утра (по Москве).\n"+
+			"Чтобы отписаться, используйте команду /unsubscribe", city))
+	h.bot.Send(msg)
+}
+
+func (h *Handler) handleUnsubscribe(update tgbotapi.Update) {
+	userID := update.Message.From.ID
+	chatID := update.Message.Chat.ID
+
+	h.notificationMgr.Unsubscribe(userID)
+
+	msg := tgbotapi.NewMessage(chatID, "❌ Вы отписались от ежедневных уведомлений о погоде")
+	h.bot.Send(msg)
 }
