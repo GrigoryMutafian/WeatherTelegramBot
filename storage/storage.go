@@ -46,7 +46,16 @@ func (s *Storage) CreateUserTable() error {
     city VARCHAR(100),
     request_count INT DEFAULT 0,
     last_reset_date DATE DEFAULT CURRENT_DATE
-);`
+);
+
+	CREATE TABLE IF NOT EXISTS notifications (
+		id SERIAL PRIMARY KEY,
+		user_id BIGINT UNIQUE,
+		city VARCHAR(100),
+		notify_hour INT DEFAULT 8,
+		enabled BOOLEAN DEFAULT true,
+		FOREIGN KEY (user_id) REFERENCES users(id)
+	);`
 
 	_, err := s.db.Exec(query)
 	return err
@@ -123,4 +132,20 @@ func (s *Storage) ResetRequestCount(id int64) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Storage) SaveNotification(userID int64, city string, hour int) error {
+	query := `
+	INSERT INTO notifications (user_id, city, notify_hour, enabled)
+	VALUES ($1, $2, $3, true)
+	ON CONFLICT (user_id) DO UPDATE SET city = $2, notify_hour = $3, enabled = true`
+
+	_, err := s.db.Exec(query, userID, city, hour)
+	return err
+}
+
+func (s *Storage) RemoveNotification(userID int64) error {
+	query := `UPDATE notifications SET enabled = false WHERE user_id = $1`
+	_, err := s.db.Exec(query, userID)
+	return err
 }
