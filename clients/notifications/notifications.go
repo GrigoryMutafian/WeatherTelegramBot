@@ -81,9 +81,8 @@ func (m *Manager) checkAndSendNotifications() {
 	for _, sub := range m.subscriptions {
 		targetHour := int(sub.NotifyAt / time.Hour)
 
-		// Отправляем только если текущее время совпадает с временем подписки
 		if currentHour == targetHour && currentMinute == 0 {
-			go m.sendWeatherNotification(sub) // Запускаем в отдельной горутине!
+			go m.sendWeatherNotification(sub)
 		}
 	}
 }
